@@ -250,13 +250,11 @@ distinction between synchronous and asynchronous instruments is
 crucial to specifying how exporters work, a topic that is covered in
 the [SDK specification (WIP)](https://github.com/open-telemetry/opentelemetry-specification/pull/347).
 
-The `ValueRecorder` instrument uses [TBD issue
-636](https://github.com/open-telemetry/opentelemetry-specification/issues/636)
-aggregation by default.
-
-The `ValueObserver` instrument uses LastValue aggregation by default.
-This aggregation keeps track of the last value that was observed and
-its timestamp.
+The non-additive instruments (`ValueRecorder`, `ValueObserver`) use
+a MinMaxSumCount aggregation, by default.  This aggregation keeps track
+of the minimum value, the maximum value, the sum of values, and the
+count of values.  These four values support monitoring the range of
+values, the rate of events, and the average event value.
 
 Other standard aggregations are available, especially for non-additive
 instruments, where we are generally interested in a variety of
@@ -449,18 +447,20 @@ is not computed.  This means, for example, that two `Counter` events
 M)`.  This is the case because `Counter` is synchronous, and
 synchronous additive instruments are used to capture changes to a sum.
 
-Asynchronous, additive instruments (e.g., `SumObserver`) are used to
-capture sums directly.  This means, for example, that in any sequence
-of `SumObserver` observations for a given instrument and label set,
-the Last Value defines the sum of the instrument.
+Asynchronous, additive instruments (`SumObserver` & `UpDownSumObserver`) 
+are used to capture sums directly. This means reporting the currently
+known total (sum) and not an increment unlike their synchronous 
+counterparts. For example, the Last Value defines
+the sum of the instrument in any sequence of `SumObserver` 
+observations for a given instrument and label set.
 
 In both synchronous and asynchronous cases, the additive instruments
 are inexpensively aggregated into a single number per collection interval
 without loss of information.  This property makes additive instruments
 higher performance, in general, than non-additive instruments.
 
-Non-additive instruments use a relatively inexpensive aggregation,
-by default, compared with recording full data, but still more expensive aggregation than the
+Non-additive instruments use a relatively inexpensive aggregation
+method default (MinMaxSumCount), but still more expensive than the
 default for additive instruments (Sum).  Unlike additive instruments,
 where only the sum is of interest by definition, non-additive
 instruments can be configured with even more expensive aggregators.
@@ -699,12 +699,12 @@ individual instruments is summarized in the table below.
 
 | **Name** | Instrument kind | Function(argument) | Default aggregation | Notes |
 | ----------------------- | ----- | --------- | ------------- | --- |
-| **Counter**             | Synchronous additive monotonic | Add(increment) | Sum | Per-request, part of a monotonic sum |
-| **UpDownCounter**       | Synchronous additive | Add(increment) | Sum | Per-request, part of a non-monotonic sum |
-| **ValueRecorder**       | Synchronous  | Record(value) | [TBD issue 636](https://github.com/open-telemetry/opentelemetry-specification/issues/636)  | Per-request, any non-additive measurement |
+| **Counter**             | Synchronous additive monotonic | Add(increment) | Sum | Per-request, part of a monotonic sum, increment must be positive |
+| **UpDownCounter**       | Synchronous additive | Add(increment) | Sum | Per-request, part of a non-monotonic sum, increment may be negative |
+| **ValueRecorder**       | Synchronous  | Record(value) | MinMaxSumCount  | Per-request, any non-additive measurement |
 | **SumObserver**         | Asynchronous additive monotonic | Observe(sum) | Sum | Per-interval, reporting a monotonic sum |
 | **UpDownSumObserver**   | Asynchronous additive | Observe(sum) | Sum | Per-interval, reporting a non-monotonic sum |
-| **ValueObserver**       | Asynchronous | Observe(value) | LastValue  | Per-interval, any non-additive measurement |
+| **ValueObserver**       | Asynchronous | Observe(value) | MinMaxSumCount  | Per-interval, any non-additive measurement |
 
 ### Constructors
 
